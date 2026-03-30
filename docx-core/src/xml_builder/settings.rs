@@ -18,6 +18,10 @@ impl<W: Write> XMLBuilder<W> {
                 .attr(
                     "xmlns:w15",
                     "http://schemas.microsoft.com/office/word/2012/wordml",
+                )
+                .attr(
+                    "xmlns:m",
+                    "http://schemas.openxmlformats.org/officeDocument/2006/math",
                 ),
         )
     }
