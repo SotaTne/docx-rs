@@ -14,6 +14,7 @@ mod footer;
 mod footnotes;
 mod header;
 mod numbering;
+mod omath;
 mod pic;
 mod properties;
 mod relationship;
@@ -161,8 +162,14 @@ impl<W: Write> XMLBuilder<W> {
         Ok(self.writer.inner_mut()?)
     }
 
-    pub(crate) fn raw_xml(&mut self, xml: &str) -> Result<()> {
-        self.writer.write_raw(xml)
+    /// Write unescaped XML directly to the underlying stream.
+    ///
+    /// The caller is responsible for providing well-formed XML that matches the
+    /// surrounding context.
+    pub(crate) fn raw_xml(mut self, xml: &str) -> Result<Self> {
+        self.writer.write("")?;
+        self.writer.inner_mut()?.write_all(xml.as_bytes())?;
+        Ok(self)
     }
 
     /// Unwraps this `XmlBuilder`, returning the underlying writer.
