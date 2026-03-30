@@ -30,6 +30,7 @@ impl Default for Paragraph {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParagraphChild {
     Run(Box<Run>),
+    Omml(Omml),
     Insert(Insert),
     Delete(Delete),
     BookmarkStart(BookmarkStart),
@@ -49,6 +50,7 @@ impl BuildXML for ParagraphChild {
     ) -> crate::xml::writer::Result<crate::xml::writer::EventWriter<W>> {
         match self {
             ParagraphChild::Run(v) => v.build_to(stream),
+            ParagraphChild::Omml(v) => v.build_to(stream),
             ParagraphChild::Insert(v) => v.build_to(stream),
             ParagraphChild::Delete(v) => v.build_to(stream),
             ParagraphChild::Hyperlink(v) => v.build_to(stream),
@@ -72,6 +74,12 @@ impl Serialize for ParagraphChild {
             ParagraphChild::Run(ref r) => {
                 let mut t = serializer.serialize_struct("Run", 2)?;
                 t.serialize_field("type", "run")?;
+                t.serialize_field("data", r)?;
+                t.end()
+            }
+            ParagraphChild::Omml(ref r) => {
+                let mut t = serializer.serialize_struct("Omml", 2)?;
+                t.serialize_field("type", "omml")?;
                 t.serialize_field("data", r)?;
                 t.end()
             }
@@ -155,6 +163,11 @@ impl Paragraph {
 
     pub fn add_run(mut self, run: Run) -> Paragraph {
         self.children.push(ParagraphChild::Run(Box::new(run)));
+        self
+    }
+
+    pub fn add_omml(mut self, xml: impl Into<String>) -> Paragraph {
+        self.children.push(ParagraphChild::Omml(Omml::new(xml)));
         self
     }
 
@@ -619,5 +632,15 @@ mod tests {
             .add_delete(Delete::new().add_run(Run::new().add_delete_text("!!!!!")))
             .raw_text();
         assert_eq!(b, "HelloWorld".to_owned());
+    }
+
+    #[test]
+    fn test_omml() {
+        let xml = r#"<m:oMathPara><m:oMath><m:r><m:t>A=πr²</m:t></m:r></m:oMath></m:oMathPara>"#;
+        let b = Paragraph::new().add_omml(xml).build();
+        assert_eq!(
+            str::from_utf8(&b).unwrap(),
+            r#"<w:p w14:paraId="12345678"><w:pPr><w:rPr /></w:pPr><m:oMathPara><m:oMath><m:r><m:t>A=πr²</m:t></m:r></m:oMath></m:oMathPara></w:p>"#
+        );
     }
 }

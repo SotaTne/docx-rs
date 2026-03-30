@@ -146,6 +146,14 @@ impl<W: Write> EventWriter<W> {
         Ok(self.writer.get_mut())
     }
 
+    pub fn write_raw(&mut self, raw: &str) -> Result<()> {
+        self.flush_pending()?;
+        self.writer
+            .get_mut()
+            .write_all(raw.as_bytes())
+            .map_err(Error::from)
+    }
+
     fn flush_pending(&mut self) -> Result<()> {
         if let Some(state) = self.element_stack.last_mut() {
             if state.pending {

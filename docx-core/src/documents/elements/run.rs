@@ -27,6 +27,7 @@ impl Default for Run {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RunChild {
     Text(Text),
+    Omml(Omml),
     Sym(Sym),
     DeleteText(DeleteText),
     Tab(Tab),
@@ -54,6 +55,12 @@ impl Serialize for RunChild {
             RunChild::Text(ref s) => {
                 let mut t = serializer.serialize_struct("Text", 2)?;
                 t.serialize_field("type", "text")?;
+                t.serialize_field("data", s)?;
+                t.end()
+            }
+            RunChild::Omml(ref s) => {
+                let mut t = serializer.serialize_struct("Omml", 2)?;
+                t.serialize_field("type", "omml")?;
                 t.serialize_field("data", s)?;
                 t.end()
             }
@@ -174,6 +181,11 @@ impl Run {
         self.children.push(RunChild::DeleteText(DeleteText::new(
             text.into().replace('\n', ""),
         )));
+        self
+    }
+
+    pub fn add_omml(mut self, xml: impl Into<String>) -> Run {
+        self.children.push(RunChild::Omml(Omml::new(xml)));
         self
     }
 
@@ -353,6 +365,7 @@ impl BuildXML for RunChild {
     ) -> crate::xml::writer::Result<crate::xml::writer::EventWriter<W>> {
         match self {
             RunChild::Text(t) => t.build_to(stream),
+            RunChild::Omml(t) => t.build_to(stream),
             RunChild::Sym(t) => t.build_to(stream),
             RunChild::DeleteText(t) => t.build_to(stream),
             RunChild::Tab(t) => t.build_to(stream),
@@ -477,6 +490,16 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&c).unwrap(),
             r#"{"type":"shading","data":{"shdType":"clear","color":"auto","fill":"FFFFFF"}}"#
+        );
+    }
+
+    #[test]
+    fn test_omml() {
+        let xml = r#"<m:oMath><m:r><m:t>x</m:t></m:r></m:oMath>"#;
+        let b = Run::new().add_omml(xml).build();
+        assert_eq!(
+            str::from_utf8(&b).unwrap(),
+            r#"<w:r><w:rPr /><m:oMath><m:r><m:t>x</m:t></m:r></m:oMath></w:r>"#
         );
     }
 }

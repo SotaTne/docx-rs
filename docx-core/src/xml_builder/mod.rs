@@ -161,6 +161,10 @@ impl<W: Write> XMLBuilder<W> {
         Ok(self.writer.inner_mut()?)
     }
 
+    pub(crate) fn raw_xml(&mut self, xml: &str) -> Result<()> {
+        self.writer.write_raw(xml)
+    }
+
     /// Unwraps this `XmlBuilder`, returning the underlying writer.
     ///
     /// The return type is intentionally `Result`, to simplify chaining.
