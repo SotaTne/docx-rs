@@ -30,7 +30,8 @@ impl Default for Paragraph {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParagraphChild {
     Run(Box<Run>),
-    Omml(Omml),
+    OMath(OMath),
+    OMathPara(OMathPara),
     Insert(Insert),
     Delete(Delete),
     BookmarkStart(BookmarkStart),
@@ -50,7 +51,8 @@ impl BuildXML for ParagraphChild {
     ) -> crate::xml::writer::Result<crate::xml::writer::EventWriter<W>> {
         match self {
             ParagraphChild::Run(v) => v.build_to(stream),
-            ParagraphChild::Omml(v) => v.build_to(stream),
+            ParagraphChild::OMath(v) => v.build_to(stream),
+            ParagraphChild::OMathPara(v) => v.build_to(stream),
             ParagraphChild::Insert(v) => v.build_to(stream),
             ParagraphChild::Delete(v) => v.build_to(stream),
             ParagraphChild::Hyperlink(v) => v.build_to(stream),
@@ -77,9 +79,15 @@ impl Serialize for ParagraphChild {
                 t.serialize_field("data", r)?;
                 t.end()
             }
-            ParagraphChild::Omml(ref r) => {
-                let mut t = serializer.serialize_struct("Omml", 2)?;
-                t.serialize_field("type", "omml")?;
+            ParagraphChild::OMath(ref r) => {
+                let mut t = serializer.serialize_struct("OMath", 2)?;
+                t.serialize_field("type", "omath")?;
+                t.serialize_field("data", r)?;
+                t.end()
+            }
+            ParagraphChild::OMathPara(ref r) => {
+                let mut t = serializer.serialize_struct("OMathPara", 2)?;
+                t.serialize_field("type", "omathPara")?;
                 t.serialize_field("data", r)?;
                 t.end()
             }
@@ -166,8 +174,13 @@ impl Paragraph {
         self
     }
 
-    pub fn add_omml(mut self, xml: impl Into<String>) -> Paragraph {
-        self.children.push(ParagraphChild::Omml(Omml::new(xml)));
+    pub fn add_omath(mut self, math: OMath) -> Paragraph {
+        self.children.push(ParagraphChild::OMath(math));
+        self
+    }
+
+    pub fn add_omath_para(mut self, math_para: OMathPara) -> Paragraph {
+        self.children.push(ParagraphChild::OMathPara(math_para));
         self
     }
 
@@ -635,9 +648,12 @@ mod tests {
     }
 
     #[test]
-    fn test_omml() {
-        let xml = r#"<m:oMathPara><m:oMath><m:r><m:t>A=πr²</m:t></m:r></m:oMath></m:oMathPara>"#;
-        let b = Paragraph::new().add_omml(xml).build();
+    fn test_omath() {
+        let b = Paragraph::new()
+            .add_omath_para(
+                OMathPara::new().add_math(OMath::new().add_run(OMathRun::new().add_text("A=πr²"))),
+            )
+            .build();
         assert_eq!(
             str::from_utf8(&b).unwrap(),
             r#"<w:p w14:paraId="12345678"><w:pPr><w:rPr /></w:pPr><m:oMathPara><m:oMath><m:r><m:t>A=πr²</m:t></m:r></m:oMath></m:oMathPara></w:p>"#

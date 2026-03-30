@@ -27,7 +27,7 @@ impl Default for Run {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RunChild {
     Text(Text),
-    Omml(Omml),
+    OMath(OMath),
     Sym(Sym),
     DeleteText(DeleteText),
     Tab(Tab),
@@ -58,9 +58,9 @@ impl Serialize for RunChild {
                 t.serialize_field("data", s)?;
                 t.end()
             }
-            RunChild::Omml(ref s) => {
-                let mut t = serializer.serialize_struct("Omml", 2)?;
-                t.serialize_field("type", "omml")?;
+            RunChild::OMath(ref s) => {
+                let mut t = serializer.serialize_struct("OMath", 2)?;
+                t.serialize_field("type", "omath")?;
                 t.serialize_field("data", s)?;
                 t.end()
             }
@@ -184,8 +184,8 @@ impl Run {
         self
     }
 
-    pub fn add_omml(mut self, xml: impl Into<String>) -> Run {
-        self.children.push(RunChild::Omml(Omml::new(xml)));
+    pub fn add_omath(mut self, math: OMath) -> Run {
+        self.children.push(RunChild::OMath(math));
         self
     }
 
@@ -365,7 +365,7 @@ impl BuildXML for RunChild {
     ) -> crate::xml::writer::Result<crate::xml::writer::EventWriter<W>> {
         match self {
             RunChild::Text(t) => t.build_to(stream),
-            RunChild::Omml(t) => t.build_to(stream),
+            RunChild::OMath(t) => t.build_to(stream),
             RunChild::Sym(t) => t.build_to(stream),
             RunChild::DeleteText(t) => t.build_to(stream),
             RunChild::Tab(t) => t.build_to(stream),
@@ -494,9 +494,10 @@ mod tests {
     }
 
     #[test]
-    fn test_omml() {
-        let xml = r#"<m:oMath><m:r><m:t>x</m:t></m:r></m:oMath>"#;
-        let b = Run::new().add_omml(xml).build();
+    fn test_omath() {
+        let b = Run::new()
+            .add_omath(OMath::new().add_run(OMathRun::new().add_text("x")))
+            .build();
         assert_eq!(
             str::from_utf8(&b).unwrap(),
             r#"<w:r><w:rPr /><m:oMath><m:r><m:t>x</m:t></m:r></m:oMath></w:r>"#
