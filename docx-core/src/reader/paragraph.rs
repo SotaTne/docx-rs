@@ -19,68 +19,83 @@ impl ElementReader for Paragraph {
             match e {
                 Ok(XmlEvent::StartElement {
                     attributes, name, ..
-                }) => {
-                    let e = XMLElement::from_str(&name.local_name).unwrap();
+                }) => match name.prefix.as_deref() {
+                    Some("w") => {
+                        let e = XMLElement::from_str(&name.local_name).unwrap();
 
-                    match e {
-                        XMLElement::Run => {
-                            let run = Run::read(r, &attributes)?;
-                            p = p.add_run(run);
-                            continue;
-                        }
-                        XMLElement::Hyperlink => {
-                            let link = Hyperlink::read(r, &attributes)?;
-                            p = p.add_hyperlink(link);
-                            continue;
-                        }
-                        XMLElement::Insert => {
-                            let ins = Insert::read(r, &attributes)?;
-                            p = p.add_insert(ins);
-                            continue;
-                        }
-                        XMLElement::Delete => {
-                            let del = Delete::read(r, &attributes)?;
-                            p = p.add_delete(del);
-                            continue;
-                        }
-                        XMLElement::BookmarkStart => {
-                            let s = BookmarkStart::read(r, &attributes)?;
-                            p = p.add_bookmark_start(s.id, s.name);
-                            continue;
-                        }
-                        XMLElement::BookmarkEnd => {
-                            let e = BookmarkEnd::read(r, &attributes)?;
-                            p = p.add_bookmark_end(e.id);
-                            continue;
-                        }
-                        XMLElement::CommentRangeStart => {
-                            if let Some(id) = read(&attributes, "id") {
-                                if let Ok(id) = usize::from_str(&id) {
-                                    let comment = Comment::new(id);
-                                    p = p.add_comment_start(comment);
+                        match e {
+                            XMLElement::Run => {
+                                let run = Run::read(r, &attributes)?;
+                                p = p.add_run(run);
+                                continue;
+                            }
+                            XMLElement::Hyperlink => {
+                                let link = Hyperlink::read(r, &attributes)?;
+                                p = p.add_hyperlink(link);
+                                continue;
+                            }
+                            XMLElement::Insert => {
+                                let ins = Insert::read(r, &attributes)?;
+                                p = p.add_insert(ins);
+                                continue;
+                            }
+                            XMLElement::Delete => {
+                                let del = Delete::read(r, &attributes)?;
+                                p = p.add_delete(del);
+                                continue;
+                            }
+                            XMLElement::BookmarkStart => {
+                                let s = BookmarkStart::read(r, &attributes)?;
+                                p = p.add_bookmark_start(s.id, s.name);
+                                continue;
+                            }
+                            XMLElement::BookmarkEnd => {
+                                let e = BookmarkEnd::read(r, &attributes)?;
+                                p = p.add_bookmark_end(e.id);
+                                continue;
+                            }
+                            XMLElement::CommentRangeStart => {
+                                if let Some(id) = read(&attributes, "id") {
+                                    if let Ok(id) = usize::from_str(&id) {
+                                        let comment = Comment::new(id);
+                                        p = p.add_comment_start(comment);
+                                    }
                                 }
+                                continue;
                             }
-                            continue;
-                        }
-                        XMLElement::CommentRangeEnd => {
-                            if let Some(id) = read(&attributes, "id") {
-                                if let Ok(id) = usize::from_str(&id) {
-                                    p = p.add_comment_end(id);
+                            XMLElement::CommentRangeEnd => {
+                                if let Some(id) = read(&attributes, "id") {
+                                    if let Ok(id) = usize::from_str(&id) {
+                                        p = p.add_comment_end(id);
+                                    }
                                 }
+                                continue;
                             }
-                            continue;
-                        }
-                        // pPr
-                        XMLElement::ParagraphProperty => {
-                            if let Ok(pr) = ParagraphProperty::read(r, &attributes) {
-                                p.has_numbering = pr.numbering_property.is_some();
-                                p.property = pr;
+                            XMLElement::ParagraphProperty => {
+                                if let Ok(pr) = ParagraphProperty::read(r, &attributes) {
+                                    p.has_numbering = pr.numbering_property.is_some();
+                                    p.property = pr;
+                                }
+                                continue;
                             }
-                            continue;
+                            _ => {}
                         }
-                        _ => {}
                     }
-                }
+                    Some("m") => {
+                        match omath::OMathXMLElement::from_str(&name.local_name).unwrap() {
+                            omath::OMathXMLElement::OMathPara => {
+                                p = p.add_omath_para(OMathPara::read(r, &attributes)?);
+                                continue;
+                            }
+                            omath::OMathXMLElement::OMath => {
+                                p = p.add_omath(OMath::read(r, &attributes)?);
+                                continue;
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
+                },
                 Ok(XmlEvent::EndElement { name, .. }) => {
                     let e = XMLElement::from_str(&name.local_name).unwrap();
                     if e == XMLElement::Paragraph {
@@ -448,6 +463,35 @@ mod tests {
                 },
                 has_numbering: false,
             }
+        );
+    }
+
+    #[test]
+    fn test_read_omath_para() {
+        let c = r#"<w:document>
+    <w:p>
+        <m:oMathPara>
+            <m:oMathParaPr>
+                <m:jc m:val="center" />
+            </m:oMathParaPr>
+            <m:oMath>
+                <m:r>
+                    <m:t>x</m:t>
+                </m:r>
+            </m:oMath>
+        </m:oMathPara>
+    </w:p>
+</w:document>"#;
+        let mut parser = EventReader::new(c.as_bytes());
+        let p = Paragraph::read(&mut parser, &[]).unwrap();
+
+        assert_eq!(
+            p,
+            Paragraph::new().add_omath_para(
+                OMathPara::new()
+                    .justification(OMathJustificationType::Center)
+                    .add_math(OMath::new().add_run(OMathRun::new().add_text("x")))
+            )
         );
     }
 }

@@ -59,6 +59,14 @@ impl ElementReader for Run {
                     attributes, name, ..
                 }) => {
                     match name.prefix.as_deref() {
+                        Some("m") => {
+                            match omath::OMathXMLElement::from_str(&name.local_name).unwrap() {
+                                omath::OMathXMLElement::OMath => {
+                                    run = run.add_omath(OMath::read(r, &attributes)?);
+                                }
+                                _ => {}
+                            }
+                        }
                         Some("w") => {
                             let e = XMLElement::from_str(&name.local_name).unwrap();
 
@@ -330,6 +338,25 @@ mod tests {
                     ..RunProperty::default()
                 },
             }
+        );
+    }
+
+    #[test]
+    fn test_read_omath() {
+        let c = r#"<w:document>
+  <w:r>
+    <m:oMath>
+      <m:r>
+        <m:t>x</m:t>
+      </m:r>
+    </m:oMath>
+  </w:r>
+</w:document>"#;
+        let mut parser = EventReader::new(c.as_bytes());
+        let run = Run::read(&mut parser, &[]).unwrap();
+        assert_eq!(
+            run,
+            Run::new().add_omath(OMath::new().add_run(OMathRun::new().add_text("x")))
         );
     }
 }

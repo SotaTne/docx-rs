@@ -34,6 +34,7 @@ mod mc_fallback;
 mod namespace;
 mod numbering_property;
 mod numberings;
+mod omath;
 mod page_num_type;
 mod paragraph;
 mod paragraph_property;
